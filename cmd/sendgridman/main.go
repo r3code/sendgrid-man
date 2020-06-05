@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/sendgrid/rest"
@@ -100,22 +100,29 @@ type templateFileStore struct {
 	baseDir string
 }
 
-func (tf templateFileStore) Store(mt mailTemplate) error {
-	htmlFileName := path.Join(tf.baseDir, mt.Name+".html")
-	plainFileName := path.Join(tf.baseDir, mt.Name+".txt")
+func (tf templateFileStore) Store(mt mailTemplate, includePlain bool) error {
 	if len(mt.Versions) == 0 {
 		fmt.Printf("No versions for TemplateID=%s\n", mt.ID)
 	}
-	fmt.Printf("Saving versions for TemplateID=%s '%s'\n", mt.ID, mt.Name)
+	fmt.Printf("Saving %d versions of TemplateID=%s '%s'\n", len(mt.Versions), mt.ID, mt.Name)
 	for _, tplVer := range mt.Versions {
-		fmt.Printf("Saving version: %s named '%s'\n", tplVer.ID, tplVer.Name)
+		fmt.Printf(" * Save version %s named '%s'\n", tplVer.ID, tplVer.Name)
+		htmlFileName := filepath.Join(tf.baseDir, fmt.Sprintf("%s__%s.html", mt.Name, tplVer.ID))
+		plainFileName := filepath.Join(tf.baseDir, fmt.Sprintf("%s__%s.txt", mt.Name, tplVer.ID))
+		if _, err := os.Stat(htmlFileName); err == nil {
+			fmt.Printf("WARN: file exists '%s'", htmlFileName)
+			continue
+		}
 		err := ioutil.WriteFile(htmlFileName, []byte(tplVer.HTMLContent), 0644)
 		if err != nil {
 			return fmt.Errorf("store TemplateID='%s'/VersionID=%s HTML content to file '%s' fail: %w", tplVer.TemplateID, tplVer.ID, htmlFileName, err)
 		}
-		err = ioutil.WriteFile(plainFileName, []byte(tplVer.PlainContent), 0644)
-		if err != nil {
-			return fmt.Errorf("store TemplateID='%s'/VersionID=%s PLAIN content to file '%s' fail: %w", tplVer.TemplateID, tplVer.ID, plainFileName, err)
+		fmt.Printf("File created '%s'\n", htmlFileName)
+		if includePlain {
+			err = ioutil.WriteFile(plainFileName, []byte(tplVer.PlainContent), 0644)
+			if err != nil {
+				return fmt.Errorf("store TemplateID='%s'/VersionID=%s PLAIN content to file '%s' fail: %w", tplVer.TemplateID, tplVer.ID, plainFileName, err)
+			}
 		}
 	}
 	return nil
@@ -124,8 +131,10 @@ func (tf templateFileStore) Store(mt mailTemplate) error {
 func main() {
 	var apiKey string
 	var baseDir string
+	var includePlain bool
 	flag.StringVar(&apiKey, "apikey", "", "sendgrid APIKey (not API Key ID!) to access service")
 	flag.StringVar(&baseDir, "basedir", "", "base dir where templates are stored")
+	flag.BoolVar(&includePlain, "include_plain", false, "export also plain templates (by defult html only)")
 	flag.Parse()
 	if strings.TrimSpace(apiKey) == "" {
 		fmt.Println("Error: Invalid --apikey value, must be not empty and starts with 'SG.'")
@@ -139,6 +148,8 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+	baseDir = filepath.Clean(baseDir)
+	fmt.Println("Export to DIR: " + baseDir)
 
 	sm := &sendgridman{apiKey: apiKey, host: sendgridHost}
 	tl, err := sm.getTemplateList()
@@ -149,7 +160,7 @@ func main() {
 	fmt.Printf("Found %d dynamic templates\n", len(tl))
 
 	ts := &templateFileStore{
-		baseDir: path.Clean(baseDir),
+		baseDir: baseDir,
 	}
 
 	fmt.Println("Retreive templates data")
@@ -161,8 +172,8 @@ func main() {
 			os.Exit(1)
 		}
 		// fmt.Printf("%d. Template ID=%s\n %+v\n\n", i, tplInfo.ID, tpl)
-		fmt.Printf("%d. Template ID=%s '%s' \n", i, tplInfo.ID, tplInfo.Name)
-		if err := ts.Store(mt); err != nil {
+		fmt.Printf("%d. Template ID=%s '%s' \n", i+1, tplInfo.ID, tplInfo.Name)
+		if err := ts.Store(mt, includePlain); err != nil {
 			fmt.Printf("Error: failed to store template ID=%s to file, %s", tplInfo.ID, err.Error())
 			os.Exit(1)
 		}
