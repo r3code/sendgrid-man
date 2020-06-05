@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
+	"strings"
 
 	"github.com/sendgrid/rest"
 	sendgrid "github.com/sendgrid/sendgrid-go"
@@ -93,17 +96,50 @@ func (s sendgridman) getTemplate(templateID string) (template mailTemplate, err 
 	return template, nil
 }
 
-// func printTemplateList()
+type templateFileStore struct {
+	baseDir string
+}
+
+func (tf templateFileStore) Store(mt mailTemplate) error {
+	htmlFileName := path.Join(tf.baseDir, mt.Name+".html")
+	plainFileName := path.Join(tf.baseDir, mt.Name+".txt")
+	if len(mt.Versions) == 0 {
+		fmt.Printf("No versions for TemplateID=%s\n", mt.ID)
+	}
+	fmt.Printf("Saving versions for TemplateID=%s '%s'\n", mt.ID, mt.Name)
+	for _, tplVer := range mt.Versions {
+		fmt.Printf("Saving version: %s named '%s'\n", tplVer.ID, tplVer.Name)
+		err := ioutil.WriteFile(htmlFileName, []byte(tplVer.HTMLContent), 0644)
+		if err != nil {
+			return fmt.Errorf("store TemplateID='%s'/VersionID=%s HTML content to file '%s' fail: %w", tplVer.TemplateID, tplVer.ID, htmlFileName, err)
+		}
+		err = ioutil.WriteFile(plainFileName, []byte(tplVer.PlainContent), 0644)
+		if err != nil {
+			return fmt.Errorf("store TemplateID='%s'/VersionID=%s PLAIN content to file '%s' fail: %w", tplVer.TemplateID, tplVer.ID, plainFileName, err)
+		}
+	}
+	return nil
+}
 
 func main() {
 	var apiKey string
-	flag.StringVar(&apiKey, "apikey", "", "a sendgrid APIKey (not API Key ID!) to access service")
-
-	// if len(apiKey) != 39 {
-	// 	fmt.Println("Error: Invalid apikey len, must be 39 symbols exactly")
-	// 	os.Exit(2)
-	// }
+	var baseDir string
+	flag.StringVar(&apiKey, "apikey", "", "sendgrid APIKey (not API Key ID!) to access service")
+	flag.StringVar(&baseDir, "basedir", "", "base dir where templates are stored")
 	flag.Parse()
+	if strings.TrimSpace(apiKey) == "" {
+		fmt.Println("Error: Invalid --apikey value, must be not empty and starts with 'SG.'")
+		fmt.Println("apiKey: " + apiKey)
+		flag.Usage()
+		os.Exit(2)
+	}
+	if strings.TrimSpace(baseDir) == "" {
+		fmt.Println("Error: Invalid path for --basedir")
+		fmt.Println("baseDir: " + baseDir)
+		flag.Usage()
+		os.Exit(2)
+	}
+
 	sm := &sendgridman{apiKey: apiKey, host: sendgridHost}
 	tl, err := sm.getTemplateList()
 	if err != nil {
@@ -111,15 +147,25 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Found %d dynamic templates\n", len(tl))
+
+	ts := &templateFileStore{
+		baseDir: path.Clean(baseDir),
+	}
+
 	fmt.Println("Retreive templates data")
 	for i, tplInfo := range tl {
-		var tpl mailTemplate
-		tpl, err = sm.getTemplate(tplInfo.ID)
+		var mt mailTemplate
+		mt, err = sm.getTemplate(tplInfo.ID)
 		if err != nil {
 			fmt.Printf("Error: failed to retreive template data ID=%s, %s", tplInfo.ID, err.Error())
 			os.Exit(1)
 		}
-		fmt.Printf("%d. Template ID=%s\n %+v\n\n", i, tplInfo.ID, tpl)
+		// fmt.Printf("%d. Template ID=%s\n %+v\n\n", i, tplInfo.ID, tpl)
+		fmt.Printf("%d. Template ID=%s '%s' \n", i, tplInfo.ID, tplInfo.Name)
+		if err := ts.Store(mt); err != nil {
+			fmt.Printf("Error: failed to store template ID=%s to file, %s", tplInfo.ID, err.Error())
+			os.Exit(1)
+		}
 	}
 	fmt.Println("Retreive templates data: OK")
 	// fmt.Printf("tpl list %+v\n", tl)
