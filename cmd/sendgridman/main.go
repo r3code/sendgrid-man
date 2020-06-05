@@ -100,18 +100,21 @@ type templateFileStore struct {
 	baseDir string
 }
 
-func (tf templateFileStore) Store(mt mailTemplate, includePlain bool) error {
+func (tf templateFileStore) Store(mt mailTemplate, includePlain, overwriteExisting bool) error {
 	if len(mt.Versions) == 0 {
 		fmt.Printf("No versions for TemplateID=%s\n", mt.ID)
 	}
-	fmt.Printf("Saving %d versions of TemplateID=%s '%s'\n", len(mt.Versions), mt.ID, mt.Name)
 	for _, tplVer := range mt.Versions {
-		fmt.Printf(" * Save version %s named '%s'\n", tplVer.ID, tplVer.Name)
+		fmt.Printf("  Save version:\n    ID:    %s\n    Name: '%s'\n", tplVer.ID, tplVer.Name)
 		htmlFileName := filepath.Join(tf.baseDir, fmt.Sprintf("%s__%s.html", mt.Name, tplVer.ID))
 		plainFileName := filepath.Join(tf.baseDir, fmt.Sprintf("%s__%s.txt", mt.Name, tplVer.ID))
 		if _, err := os.Stat(htmlFileName); err == nil {
-			fmt.Printf("WARN: file exists '%s'", htmlFileName)
-			continue
+			fmt.Printf("*** WARN: file exists '%s'\n", htmlFileName)
+			if !overwriteExisting {
+				fmt.Println("Skip save. Overwrite not allowed")
+				continue
+			}
+			fmt.Println("Overwrite")
 		}
 		err := ioutil.WriteFile(htmlFileName, []byte(tplVer.HTMLContent), 0644)
 		if err != nil {
@@ -132,9 +135,11 @@ func main() {
 	var apiKey string
 	var baseDir string
 	var includePlain bool
+	var overwriteExisting bool
 	flag.StringVar(&apiKey, "apikey", "", "sendgrid APIKey (not API Key ID!) to access service")
 	flag.StringVar(&baseDir, "basedir", "", "base dir where templates are stored")
 	flag.BoolVar(&includePlain, "include_plain", false, "export also plain templates (by defult html only)")
+	flag.BoolVar(&overwriteExisting, "overwrite", false, "allow overwrite existring files")
 	flag.Parse()
 	if strings.TrimSpace(apiKey) == "" {
 		fmt.Println("Error: Invalid --apikey value, must be not empty and starts with 'SG.'")
@@ -149,7 +154,9 @@ func main() {
 		os.Exit(2)
 	}
 	baseDir = filepath.Clean(baseDir)
-	fmt.Println("Export to DIR: " + baseDir)
+	fmt.Printf("Export to DIR: %s\n", baseDir)
+	fmt.Printf("Export plain: %v\n", includePlain)
+	fmt.Printf("Overwrite existing: %v\n", overwriteExisting)
 
 	sm := &sendgridman{apiKey: apiKey, host: sendgridHost}
 	tl, err := sm.getTemplateList()
@@ -172,9 +179,9 @@ func main() {
 			os.Exit(1)
 		}
 		// fmt.Printf("%d. Template ID=%s\n %+v\n\n", i, tplInfo.ID, tpl)
-		fmt.Printf("%d. Template ID=%s '%s' \n", i+1, tplInfo.ID, tplInfo.Name)
-		if err := ts.Store(mt, includePlain); err != nil {
-			fmt.Printf("Error: failed to store template ID=%s to file, %s", tplInfo.ID, err.Error())
+		fmt.Printf("\n%d. TemplateID: %s\n  Name: '%s'\n  Versions: %d\n", i+1, mt.ID, mt.Name, len(mt.Versions))
+		if err := ts.Store(mt, includePlain, overwriteExisting); err != nil {
+			fmt.Printf("Error: failed to store template ID=%s to file, %s", mt.ID, err.Error())
 			os.Exit(1)
 		}
 	}
