@@ -187,6 +187,7 @@ func main() {
 		baseDir: baseDir,
 	}
 
+	// TODO: speed up - use multiple goroutines
 	fmt.Println("Retreive templates data")
 	for i, tplInfo := range tl {
 		var mt mailTemplate
