@@ -161,16 +161,19 @@ func main() {
 	}
 
 	if strings.TrimSpace(baseDir) == "" {
-		fmt.Println("Error: Invalid path for --basedir")
-		fmt.Println("baseDir: " + baseDir)
-		flag.Usage()
-		os.Exit(2)
+		wdPath, err := os.Getwd()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		baseDir = wdPath
 	}
 	baseDir = filepath.Clean(baseDir)
 	fmt.Printf("Export to DIR: %s\n", baseDir)
 	fmt.Printf("Export plain: %v\n", includePlain)
 	fmt.Printf("Overwrite existing: %v\n", overwriteExisting)
 	fmt.Printf("Save all versions: %v\n", allVersions)
+	fmt.Println()
 
 	sm := &sendgridman{apiKey: apiKey, host: sendgridHost}
 	tl, err := sm.getTemplateList()
