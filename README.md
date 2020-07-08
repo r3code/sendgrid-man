@@ -10,6 +10,15 @@ To overvrite existing files use `--overwrite` flag.
 ## Usage 
 
     sendgridman --apikey=Your_Sendgrid_Key --basedir=.
+    
+or
+
+    export SENDGRID_API_KEY=SG.___
+    sendgridman --apikey=$SENDGRID_API_KEY --basedir=.
+    
+or
+
+    SENDGRID_API_KEY=SG.___ sendgridman --apikey=$SENDGRID_API_KEY --basedir=.
 
 For `--apikey` you should use the Sendgrid ApiKey which have an access to read the templates. Sendgrid shows you an ApiKey only once at create time, if you forgot or lost the key you should create a new one. 
 By default all the templates are exported to current working dir. To store in an another dir use `--basedir` flag to set the path to it.
