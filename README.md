@@ -27,4 +27,13 @@ or
 For `--apikey` you should use the Sendgrid ApiKey which have an access to read the templates. Sendgrid shows you an ApiKey only once at create time, if you forgot or lost the key you should create a new one. 
 By default all the templates are exported to current working dir. To store in an another dir use `--basedir` flag to set the path to it.
 
+## Compile from source
 
+Download source from git 
+    
+    git clone https://github.com/r3code/sendgrid-man.git
+    
+ Build from source
+ 
+    cd sendgrid-man/cmd/sendgridman
+    go build
