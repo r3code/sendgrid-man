@@ -7,6 +7,10 @@ To retrieve all vesions specify `--all` flag. It will retrieve all the versions 
 To export plain versions use a flac `--include_plain`. It will retrieve the plain content and name the file as `templateName__versionID.txt`.
 To overvrite existing files use `--overwrite` flag.
 
+## Install
+
+    go get github.com/r3code/sendgrid-man/cmd/sendgridman
+
 ## Usage 
 
     sendgridman --apikey=Your_Sendgrid_Key --basedir=.
