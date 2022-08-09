@@ -9,7 +9,7 @@ To overvrite existing files use `--overwrite` flag.
 
 ## Install
 
-    go get github.com/r3code/sendgrid-man/cmd/sendgridman
+    go install github.com/r3code/sendgrid-man/cmd/sendgridman@latest
 
 ## Usage 
 
